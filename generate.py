@@ -11,7 +11,7 @@ def token_ids_to_text(token_ids, tokenizer):
 
 def generate_and_print_sample(model, tokenizer, device, start_context):
     model.eval()
-    context_size = model.pos_emb.weight.shape[0]
+    context_size = getattr(model, "context_length", 1024)
     encoded = text_to_token_ids(start_context, tokenizer).to(device)
     with torch.no_grad():
         token_ids = generate_text_simple(

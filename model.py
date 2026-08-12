@@ -75,7 +75,7 @@ class TransformerBlock(nn.Module):
             dropout=cfg["drop_rate"],
             context_length=cfg["context_length"],
             use_rope=cfg["use_rope"],
-            n_kv_heads=cfg["n_kv_heads"])
+            num_kv_heads=cfg["n_kv_heads"])
 
         if cfg["use_swiglu"]:
             self.ff = SwiGLU(cfg)
@@ -108,6 +108,7 @@ class TransformerBlock(nn.Module):
 class GPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        self.context_length = cfg["context_length"]
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.use_rope = cfg["use_rope"]
         if not self.use_rope:

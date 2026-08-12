@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--dataset", type=str, default="dummy", help="Path to dataset text file, or 'dummy' for testing")
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--max-steps", type=int, default=1000)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--checkpoint", type=str, default="model.pth")
     parser.add_argument("--seed", type=int, default=1337)
@@ -79,6 +80,7 @@ def main():
         optimizer=optimizer,
         device=device,
         num_epochs=args.epochs,
+        max_steps=args.max_steps,
         eval_freq=5,
         eval_iter=1,
         start_context="Hello, this is",

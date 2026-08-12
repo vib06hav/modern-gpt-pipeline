@@ -32,7 +32,7 @@ def evaluate_model(model, train_loader, val_loader, device, eval_iter):
     return train_loss, val_loss
 
 def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs,
-                    eval_freq, eval_iter, start_context, tokenizer):
+                    eval_freq, eval_iter, start_context, tokenizer, max_steps=None):
     train_losses, val_losses, track_tokens_seen = [], [], []
     tokens_seen = 0
     global_step = -1
@@ -54,9 +54,15 @@ def train_model_simple(model, train_loader, val_loader, optimizer, device, num_e
                 track_tokens_seen.append(tokens_seen)
                 print(f"Ep {epoch+1} (Step {global_step:06d}): "
                       f"Train loss {train_loss:.3f}, Val loss {val_loss:.3f}")
+                      
+            if max_steps is not None and global_step >= max_steps:
+                break
 
         generate_and_print_sample(
             model, tokenizer, device, start_context
         )
+        
+        if max_steps is not None and global_step >= max_steps:
+            break
 
     return train_losses, val_losses, track_tokens_seen
