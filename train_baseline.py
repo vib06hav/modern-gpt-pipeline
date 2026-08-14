@@ -8,11 +8,11 @@ import argparse
 
 def save_checkpoint(model, optimizer, step, loss, config, filename):
     checkpoint = {
-        'step': step,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss,
-        'config': config
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "config": config,
+        "train_loss": loss,
+        "val_loss": None
     }
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     torch.save(checkpoint, filename)
