@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from model_baseline import BaselineGPTModel
-from prepare_fineweb import get_fineweb_dataloader
+from data import create_dataloader
 import time
 import os
 import argparse
@@ -20,6 +20,7 @@ def save_checkpoint(model, optimizer, step, loss, config, filename):
 
 def main():
     parser = argparse.ArgumentParser(description="Train Baseline GPT-2 on FineWeb-Edu")
+    parser.add_argument("--dataset", type=str, default="dummy", help="Path to dataset text file, or 'dummy' for testing")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
     parser.add_argument("--max-steps", type=int, default=1000, help="Maximum number of training steps")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/baseline_model.pth", help="Path to save checkpoint")
@@ -44,11 +45,25 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=0.1)
     criterion = nn.CrossEntropyLoss()
 
-    print("Loading FineWeb-Edu dataset stream...")
-    train_loader = get_fineweb_dataloader(
+    # Get data
+    if args.dataset == "dummy":
+        text_data = (
+            "Hello, this is a test of the GPT model training. "
+            "We are training it to understand language and generate text. "
+            "It uses self-attention and transformer blocks to learn patterns. "
+        ) * 200
+    else:
+        with open(args.dataset, "r", encoding="utf-8") as f:
+            text_data = f.read()
+
+    print("Loading dataset stream...")
+    max_len = 16 if args.dataset == "dummy" else config["context_length"]
+    train_loader = create_dataloader(
+        text_data, 
         batch_size=args.batch_size, 
-        context_length=config["context_length"], 
-        max_docs=50000 
+        max_length=max_len, 
+        stride=max_len, 
+        shuffle=True
     )
 
     print(f"Starting Baseline Training for {args.max_steps} steps...")
@@ -56,6 +71,7 @@ def main():
     model.train()
     step = 0
     total_loss = 0.0
+    avg_loss = 0.0
     start_time = time.time()
 
     for inputs, targets in train_loader:
