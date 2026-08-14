@@ -19,7 +19,7 @@ Transitioned from local CPU training to a production-grade cloud GPU pipeline.
 *   **Data Pipeline:** Authored `prepare_fineweb.py` to stream 50,000 documents from the HuggingFace `FineWeb-Edu` dataset, bypassing the need to download the entire terabyte-scale corpus.
 *   **Training Execution:** 
     *   Executed training via `tmux` to ensure session persistence across SSH disconnects.
-    *   Replaced arbitrary epoch loops with deterministic step-based training (`max-steps`) in `test_train.py`.
+    *   Replaced arbitrary epoch loops with deterministic step-based training (`max-steps`) in `train_modern.py`.
     *   Overrode default 124M config to a target ~30M parameter model: `emb_dim=512`, `n_layers=8`, `n_heads=8`, `n_kv_heads=2`.
 *   **Artifact Retrieval:** Secured the trained checkpoint (`final_model.pth`, 233 MB) via secure copy (`scp`) and terminated the AWS instance.
 
@@ -44,13 +44,13 @@ Authored custom profiling scripts (`benchmark_matrix.py` and `benchmark_gqa_vs_m
     *   *Result:* Empirically proven ~75% reduction in KV-Cache memory footprint.
 
 ## 6. Project Augmentation: Quality & Scalability Validation
-To scientifically validate that the modernization (GQA, SwiGLU, RMSNorm) did not sacrifice model intelligence for speed, the project executed a final rigor phase against a Vanilla GPT-2 baseline trained under identical AWS conditions (10,000 steps, ~30M params, 50K FineWeb-Edu subset).
+To rigorously quantify the systemic tradeoffs of the modernization (GQA, SwiGLU, RMSNorm, RoPE), the project executed a final rigor phase against a Vanilla GPT-2 baseline trained under identical AWS conditions (10,000 steps, ~30M params, 50K FineWeb-Edu subset).
 
 *   **Quality Validation (A/B Test):**
     *   Evaluated both models on a strictly held-out, unseen slice of the training distribution (Docs 50,001 - 50,200).
     *   *Vanilla GPT-2 (MHA):* Cross-Entropy Loss: 5.01 | Perplexity: 150.7
     *   *Modern GPT (GQA):* Cross-Entropy Loss: 5.53 | Perplexity: 253.2
-    *   *Result:* In this controlled setup, the GQA model achieved higher perplexity, indicating a quality–efficiency tradeoff at this model scale and training budget.
+    *   *Result:* The modern architecture as a whole trades a substantial increase in perplexity (150.7 → 253.2) in exchange for massive serving throughput. Future work could isolate the specific cost driver by running ablations (e.g., testing the modern architecture with MHA instead of GQA).
 *   **RoPE Context Extrapolation:**
     *   Pushed both models to evaluate perplexities at 1.5x (1536) and 2.0x (2048) their trained context lengths.
     *   *Vanilla GPT-2:* Fatally crashed at token 1025 (`CUDA error: device-side assert`) due to rigid Absolute Embeddings.

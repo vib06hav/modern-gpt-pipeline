@@ -21,7 +21,7 @@ The model (~30M parameters) was trained on a cloud GPU pipeline via AWS EC2:
 
 ## 2. Quality Validation (A/B Test)
 
-To prove that the architectural optimizations (GQA, SwiGLU) did not break the model's linguistic competence, we trained a Vanilla GPT-2 Baseline (Absolute Embeddings, standard LayerNorm, GeLU, standard MHA) on the **exact same dataset for the exact same duration**. 
+To quantify the performance tradeoffs of the architectural optimizations (RoPE, RMSNorm, SwiGLU, GQA), we trained a Vanilla GPT-2 Baseline (Absolute Embeddings, standard LayerNorm, GeLU, standard MHA) on the **exact same dataset for the exact same duration**. 
 
 Both models were then evaluated on a strictly held-out, unseen slice of FineWeb-Edu (Docs 50,001 - 50,200).
 
@@ -30,7 +30,7 @@ Both models were then evaluated on a strictly held-out, unseen slice of FineWeb-
 | **Vanilla GPT-2 Baseline** (MHA) | 5.01 | 150.7 |
 | **Modern GPT** (GQA + RoPE) | 5.53 | 253.2 |
 
-*Finding: In this controlled setup, the GQA model achieved higher perplexity, indicating a quality–efficiency tradeoff at this model scale and training budget.*
+*Finding: The modern architecture as a whole trades a substantial increase in perplexity (150.7 → 253.2) for a 75% memory cut and a 3x serving throughput gain at batch 16. Future work could isolate the specific cost driver by running ablations (e.g., testing the modern architecture with MHA instead of GQA) to determine whether GQA specifically is eating the capacity.*
 
 ### Qualitative Sample Generation
 *(Generated using temperature 0.7, top-k 50 on the Modern GPT)*
