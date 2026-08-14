@@ -4,9 +4,11 @@ from datasets import load_dataset
 import tiktoken
 import sys
 import os
+import argparse
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model import GPTModel
+from model_baseline import BaselineGPTModel
 
 def get_held_out_data(tokenizer, context_length, num_docs=100, skip_docs=50000):
     # Using streaming to skip exactly the docs we trained on
@@ -30,15 +32,23 @@ def get_held_out_data(tokenizer, context_length, num_docs=100, skip_docs=50000):
     return torch.tensor(blocks)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint", type=str, default="../checkpoints/final_model.pth")
+    parser.add_argument("--model-type", type=str, choices=["modern", "baseline"], default="modern")
+    args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    checkpoint_path = "../checkpoints/final_model.pth"
-    print(f"Loading {checkpoint_path}...")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    print(f"Loading {args.checkpoint}...")
+    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     config = checkpoint["config"]
     
-    model = GPTModel(config)
+    if args.model_type == "modern":
+        model = GPTModel(config)
+    else:
+        model = BaselineGPTModel(config)
+        
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     model.eval()
