@@ -21,7 +21,8 @@ def save_checkpoint(model, optimizer, step, loss, config, filename):
 def main():
     parser = argparse.ArgumentParser(description="Train Baseline GPT-2 on FineWeb-Edu")
     parser.add_argument("--dataset", type=str, default="dummy", help="Path to dataset text file, or 'dummy' for testing")
-    parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
+    parser.add_argument("--batch-size", type=int, default=4, help="Micro batch size")
+    parser.add_argument("--accumulation-steps", type=int, default=2, help="Gradient accumulation steps to simulate larger batch")
     parser.add_argument("--max-steps", type=int, default=1000, help="Maximum number of training steps")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/baseline_model.pth", help="Path to save checkpoint")
     args = parser.parse_args()
@@ -73,35 +74,39 @@ def main():
     total_loss = 0.0
     avg_loss = 0.0
     start_time = time.time()
+    
+    optimizer.zero_grad()
 
-    for inputs, targets in train_loader:
+    for i, (inputs, targets) in enumerate(train_loader):
         if step >= args.max_steps:
             break
 
         inputs, targets = inputs.to(device), targets.to(device)
         
-        optimizer.zero_grad()
         logits = model(inputs)
         
         logits_flat = logits.view(-1, logits.size(-1))
         targets_flat = targets.view(-1)
         
-        loss = criterion(logits_flat, targets_flat)
+        # Scale loss for gradient accumulation
+        loss = criterion(logits_flat, targets_flat) / args.accumulation_steps
         loss.backward()
         
-        # Gradient clipping
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        if (i + 1) % args.accumulation_steps == 0:
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            optimizer.zero_grad()
+            step += 1
 
-        total_loss += loss.item()
-        step += 1
+            total_loss += (loss.item() * args.accumulation_steps)
 
-        if step % 50 == 0:
-            avg_loss = total_loss / 50
-            elapsed = time.time() - start_time
-            print(f"Step {step}/{args.max_steps} | Loss: {avg_loss:.4f} | Time: {elapsed:.2f}s")
-            total_loss = 0.0
-            start_time = time.time()
+            if step % 50 == 0:
+                avg_loss = total_loss / 50
+                elapsed = time.time() - start_time
+                print(f"Step {step}/{args.max_steps} | Loss: {avg_loss:.4f} | Time: {elapsed:.2f}s")
+                total_loss = 0.0
+                start_time = time.time()
 
     # Save final checkpoint
     save_checkpoint(model, optimizer, step, avg_loss, config, args.checkpoint)
