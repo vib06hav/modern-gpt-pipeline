@@ -1,6 +1,6 @@
-# Modern GPT Architecture & Training Pipeline
+# Modern GPT Architecture & Inference Systems
 
-A state-of-the-art LLM implementation from scratch in PyTorch, focusing on bridging the gap between academic architecture and production-grade serving infrastructure. 
+PyTorch implementation of a decoder-only Transformer, modernized with RoPE, RMSNorm, SwiGLU and GQA, followed by cloud training and quantitative inference/serving benchmarks. 
 
 This project completely strips down a vanilla GPT-2 baseline and replaces it with modern open-source standards (mirroring Llama-2/3 paradigms):
 - **RoPE** (Rotary Positional Embeddings) for dynamic context extrapolation
@@ -30,7 +30,7 @@ Both models were then evaluated on a strictly held-out, unseen slice of FineWeb-
 | **Vanilla GPT-2 Baseline** (MHA) | 5.01 | 150.7 |
 | **Modern GPT** (GQA + RoPE) | 5.53 | 253.2 |
 
-*Finding: As mathematically expected, reducing the Key/Value heads by 75% (GQA) slightly reduces the model's raw capacity, leading to a higher perplexity. However, this explicit quality tradeoff was made to unlock the massive serving speedups detailed below.*
+*Finding: In this controlled setup, the GQA model achieved higher perplexity, indicating a quality–efficiency tradeoff at this model scale and training budget.*
 
 ### Qualitative Sample Generation
 *(Generated using temperature 0.7, top-k 50 on the Modern GPT)*
@@ -47,13 +47,13 @@ The primary motivation for implementing Rotary Positional Embeddings (RoPE) was 
 
 ![RoPE Extrapolation](benchmarks/plots/extrapolation_ppl.png)
 
-*Finding: The Vanilla GPT-2 Baseline (using Absolute Embeddings) immediately crashed with a fatal `IndexError` at token 1025, as it lacked physical embedding vectors. In contrast, the Modern GPT (using RoPE) dynamically computed rotational matrices on the fly, degrading gracefully by only ~9% perplexity when pushed to double its trained context length (2048 tokens).*
+*Finding: RoPE enabled evaluation beyond the trained context length, whereas the absolute-position baseline could not represent positions beyond 1024 (crashing with a fatal out-of-bounds error). The RoPE model degraded gracefully by only ~9% perplexity when pushed to double its trained context length (2048 tokens).*
 
 ---
 
 ## 4. Inference Optimization (KV-Cache)
 
-We engineered a persistent state-tracking Key-Value Cache to eliminate redundant $O(N^2)$ matrix multiplications during autoregressive generation. 
+We engineered a persistent state-tracking Key-Value Cache that avoids recomputing historical K/V projections and reduces autoregressive attention computation from repeatedly processing the full prefix.
 
 ### Latency Scaling: O(N) vs O(N²)
 By storing historical Keys and Values, the model maintains perfectly flat generation speeds regardless of context length.

@@ -24,7 +24,7 @@ Transitioned from local CPU training to a production-grade cloud GPU pipeline.
 *   **Artifact Retrieval:** Secured the trained checkpoint (`final_model.pth`, 233 MB) via secure copy (`scp`) and terminated the AWS instance.
 
 ## 4. Inference Optimization (KV Cache)
-Engineered a persistent state-tracking Key-Value Cache to eliminate redundant $O(N^2)$ matrix multiplications during autoregressive generation.
+Engineered a persistent state-tracking Key-Value Cache that avoids recomputing historical K/V projections and reduces autoregressive attention computation from repeatedly processing the full prefix.
 *   **State Management:** Registered `cache_k` and `cache_v` persistent buffers inside the `MultiHeadAttention` class, implementing a `reset_cache()` pipeline invoked from the top-level `GPTModel`.
 *   **Memory Efficiency:** Relocated the `transpose(1,2)` operation to occur *before* caching. This ensured only the minimal GQA Key/Value matrices (2 heads) were stored in VRAM. The `repeat_interleave` expansion to 8 heads was applied dynamically *after* the cache pull, preserving the GQA memory advantage.
 *   **Dynamic RoPE Slicing:** Modified `rope.py` to track `ptr_current_pos`, dynamically slicing the precomputed Cosine/Sine tables to rotate single-token generations by their absolute sequence position rather than position zero.
@@ -50,12 +50,12 @@ To scientifically validate that the modernization (GQA, SwiGLU, RMSNorm) did not
     *   Evaluated both models on a strictly held-out, unseen slice of the training distribution (Docs 50,001 - 50,200).
     *   *Vanilla GPT-2 (MHA):* Cross-Entropy Loss: 5.01 | Perplexity: 150.7
     *   *Modern GPT (GQA):* Cross-Entropy Loss: 5.53 | Perplexity: 253.2
-    *   *Result:* Validated the explicit engineering tradeoff: GQA slightly reduces raw parameter capacity (yielding higher perplexity) in exchange for massive serving throughput.
+    *   *Result:* In this controlled setup, the GQA model achieved higher perplexity, indicating a quality–efficiency tradeoff at this model scale and training budget.
 *   **RoPE Context Extrapolation:**
     *   Pushed both models to evaluate perplexities at 1.5x (1536) and 2.0x (2048) their trained context lengths.
     *   *Vanilla GPT-2:* Fatally crashed at token 1025 (`CUDA error: device-side assert`) due to rigid Absolute Embeddings.
     *   *Modern GPT:* Dynamically extrapolated coordinates via RoPE, gracefully degrading by only ~9% perplexity at 2048 tokens.
-    *   *Result:* Conclusively proved the architectural superiority of Rotary Positional Embeddings for dynamic contexts.
+    *   *Result:* RoPE enabled evaluation beyond the trained context length, whereas the absolute-position baseline could not represent positions beyond 1024.
 *   **Batched Throughput (Serving Capacity):**
     *   Swept concurrent batch sizes (1 to 16) on the 16GB T4 GPU to simulate a production serving environment.
     *   *Vanilla GPT-2 (MHA):* Bottlenecked severely due to KV-cache memory saturation, collapsing to 574 tokens/sec at Batch 16.
