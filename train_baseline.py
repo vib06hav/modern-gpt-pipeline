@@ -36,7 +36,7 @@ def main():
         "emb_dim": 512,
         "n_heads": 8,
         "n_layers": 8,
-        "drop_rate": 0.0,
+        "drop_rate": 0.1,
         "qkv_bias": False
     }
 
