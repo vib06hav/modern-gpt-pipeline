@@ -14,12 +14,13 @@ def precompute_rope_params(head_dim, context_length, theta_base=10000.0):
     return cos, sin
 
 def apply_rotary_emb(x, cos, sin):
-    b, num_tokens, num_heads, head_dim = x.shape
-    cos = cos[:num_tokens, :].to(x.device)
-    sin = sin[:num_tokens, :].to(x.device)
-
-    cos = cos.unsqueeze(0).unsqueeze(2)
-    sin = sin.unsqueeze(0).unsqueeze(2)
+    # x is now shaped [b, num_heads, num_tokens, head_dim]
+    b, num_heads, num_tokens, head_dim = x.shape
+    
+    # cos and sin are passed in already sliced from attention.py, shape [num_tokens, head_dim]
+    # We unsqueeze to [1, 1, num_tokens, head_dim] to broadcast across batch and heads
+    cos = cos.unsqueeze(0).unsqueeze(1).to(x.device)
+    sin = sin.unsqueeze(0).unsqueeze(1).to(x.device)
 
     half = head_dim // 2
     x_first_half = x[..., :half]

@@ -90,10 +90,10 @@ class TransformerBlock(nn.Module):
             self.norm2 = LayerNorm(cfg["emb_dim"])
         self.drop_shortcut = nn.Dropout(cfg["drop_rate"])
 
-    def forward(self, x):
+    def forward(self, x, use_cache=False):
         shortcut = x
         x = self.norm1(x)
-        x = self.att(x)
+        x = self.att(x, use_cache=use_cache)
         x = self.drop_shortcut(x)
         x = x + shortcut
 
@@ -125,7 +125,11 @@ class GPTModel(nn.Module):
         
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
     
-    def forward(self, in_idx):
+    def reset_kv_cache(self):
+        for blk in self.trf_blocks:
+            blk.att.reset_cache()
+
+    def forward(self, in_idx, use_cache=False):
         batch_size, seq_len = in_idx.shape
         tok_embeds = self.tok_emb(in_idx)
         if self.use_rope:
@@ -134,7 +138,8 @@ class GPTModel(nn.Module):
             pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
             x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
-        x = self.trf_blocks(x)
+        for blk in self.trf_blocks:
+            x = blk(x, use_cache=use_cache)
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits

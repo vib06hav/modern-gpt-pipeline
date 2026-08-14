@@ -47,6 +47,33 @@ def generate_text_simple(model, idx, max_new_tokens, context_size):
 
     return idx
 
+def generate_text_cached(model, idx, max_new_tokens, context_size):
+    # Reset the cache for a fresh generation
+    model.reset_kv_cache()
+    
+    # 1. PREFILL PHASE: Pass the entire prompt through the model
+    # This fills the KV cache with the keys/values for the starting context
+    idx_cond = idx[:, -context_size:]
+    with torch.no_grad():
+        logits = model(idx_cond, use_cache=True)
+    
+    # Get the prediction for the very first generated token
+    logits = logits[:, -1, :]
+    idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+    idx = torch.cat((idx, idx_next), dim=1)
+    
+    # 2. DECODE PHASE: Only pass the new token!
+    for _ in range(max_new_tokens - 1):
+        with torch.no_grad():
+            # Notice we pass ONLY idx_next (shape: [batch, 1])
+            logits = model(idx_next, use_cache=True)
+            
+        logits = logits[:, -1, :]
+        idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+        idx = torch.cat((idx, idx_next), dim=1)
+        
+    return idx
+
 def generate(model, idx, max_new_tokens, context_size, temperature=0.0, top_k=None, eos_id=None):
 
     # For-loop is the same as before: Get logits, and only focus on last time step
